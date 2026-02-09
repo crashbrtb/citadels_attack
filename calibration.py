@@ -4,9 +4,7 @@ from pynput import mouse
 import tkinter as tk
 from screeninfo import get_monitors
 
-scroll_count = 0
 def capture_area():
-
     def start_selection(event):
         global start_x, start_y
         start_x, start_y = event.x, event.y
@@ -22,14 +20,12 @@ def capture_area():
         area = (start_x, start_y, event.x, event.y)
         window.destroy()  # Fecha a window
 
-
     # Criando a window
     window = tk.Tk()
     window.title("Mouse Selection")
 
     # Fazendo a window ocupar a tela inteira
     window.attributes('-fullscreen', True)
-
     # Tornando a window transparente
     window.attributes('-alpha', 0.3)
 
@@ -41,9 +37,11 @@ def capture_area():
     canvas.bind("<Button-1>", start_selection)
     canvas.bind("<B1-Motion>", update_selection)
     canvas.bind("<ButtonRelease-1>", end_selection)
+    
     # Executando a window
     window.mainloop()
     return area
+
 def get_click_postition():
     with mouse.Events() as events:
         for event in events:
@@ -80,16 +78,34 @@ def get_monitor_resolution():
     with open('position.cfg', 'w') as f:
         config.write(f)
 
+def choose_calibration_mode():
+    result = pyautogui.confirm(
+        text="Select calibration mode:",
+        title="Calibration",
+        buttons=["Full Calibration", "Only Troops"]
+    )
+    if result == "Full Calibration":
+        return "full"
+    if result == "Only Troops":
+        return "soldiers"
+    return None
+
 def calibration(opt, msg, title, type_cap):
     # type_cap: 0 for area, 1 for clicks, 2 for scrolls and 3 for prompt
     cord_click = []
-    howmany = int
+    howmany = 0
+    
     if type_cap == 3:
-        howmany = int(pyautogui.prompt(text=msg, title=title, default=''))
+        val = pyautogui.prompt(text=msg, title=title, default='')
+        if val is None or val.strip() == "":
+            raise SystemExit(0)
+        howmany = int(val)
+            
     else:
-        # 2. Abrir janela para gravar posição da torre de vigia
-        pyautogui.alert(title=title, text=msg,
-                        button="OK")
+        result = pyautogui.confirm(text=msg, title=title, buttons=["OK", "Cancel"])
+        if result != "OK":
+            raise SystemExit(0)
+            
     if type_cap == 2:#how many scroll clicks capture
         scroll_capture()
     if type_cap == 1: #position Capture
@@ -135,34 +151,53 @@ def calibration(opt, msg, title, type_cap):
         pyautogui.alert(title="Calibration",
                         text="Position of the {} successfully captured!".format(title),
                         button="OK")
+        
     if opt == "cord_click_use_speedups":
-        pyautogui.alert(title="Calibration",
+         pyautogui.alert(title="Calibration",
                         text="Position of the {} successfully captured! Finished. All parameters were captured.".format(title),
                         button="OK")
 
 
 
 if __name__ == "__main__":
-    window_start = pyautogui.alert(title="Calibration", text="Follow the instructions in the next windows.",
-                                   button="Start")
-    get_monitor_resolution()
-    calibration("how_many_citadels", "Write down how many citadels you want to attack:", "How Many Citadels", 3)
-    #calibration("cord_click_watchtower","Let's capture the location of the Watch tower icon", "Watchtower", 1)
-    #calibration("cord_click_monsters","Let's capture the location of the monsters menu", "Monsters Menu",1)
-    #calibration("cord_menu_button_go_citadels", "Let's capture the go button area", "Citatdel go button", 0)
-    #calibration("center_of_screen","Let's capture the location of citadel in center of map", "Citatel in map",1)
-    #calibration("verify_if_open_citadel", "Let's capture the citadel icon area", "Citatdel icon", 0)
-    calibration("cord_attack_button","Let's capture the location of attack button", "Attack button", 1)
-    calibration("scroll_to_soldiers", "Move the mouse to the list of troops and scroll until both catapults and other troops who you'll use are visible on the screen. Then click with the left mouse button", "Select Soldiers", 2)
-    #calibration("how_many_catapults", "Write down how many catapults you will use:", "Siege engine", 3)
-    calibration("cord_click_values_catapults", "Let's capture the location of field to enter the number of catapults", "Siege engine", 1)
-    #calibration("how_many_troops", "Write down how many soldiers you will use:", "Troops Unit", 3)
-    calibration("cord_click_values_troops", "Choose another troop type and click on the quantity field", "Troops Unit", 1)
-    #calibration("how_many_troops1", "Write down how many soldiers you will use:", "Troops1 Unit", 3)
-    calibration("cord_click_values_troops1", "Choose another troop type and click on the quantity field", "Troops1 Unit", 1)
-    #calibration("how_many_troops2", "Write down how many soldiers you will use:", "Troops2 Unit", 3)
-    calibration("cord_click_values_troops2", "Choose another troop type and click on the quantity field", "Troops3 Unit", 1)
-    calibration("cord_startmarch_button", "Let's capture the location of start march button", "Start march",1)
-    calibration("cord_speedup_march", "Let's capture the location of speedup march button", "Speedup march",1)
-    calibration("cord_click_use_speedups_screen", "Let's capture the speedups icon area", "Speedup icon", 0)
-    calibration("cord_click_use_speedups", "Let's capture the location of use button", "Use Speedup button",1)
+    try:
+        mode = choose_calibration_mode()
+        if mode is None:
+            raise SystemExit(0)
+    
+        get_monitor_resolution()
+    
+        if mode == "full":
+            calibration("how_many_citadels", "Write down how many citadels you want to attack:", "How Many Citadels", 3)
+            calibration("cord_click_watchtower","Let's capture the location of the Watch tower icon", "Watchtower", 1)
+            calibration("cord_click_monsters","Let's capture the location of the monsters menu", "Monsters Menu",1)
+            calibration("cord_menu_button_go_citadels", "Let's capture the go button area", "Citatdel go button", 0)
+            calibration("center_of_screen","Let's capture the location of citadel in center of map", "Citatel in map",1)
+            calibration("verify_if_open_citadel", "Let's capture the citadel icon area", "Citatdel icon", 0)
+            calibration("cord_attack_button","Let's capture the location of attack button", "Attack button", 1)
+            calibration("scroll_to_soldiers", "Move the mouse to the list of troops and scroll until both catapults and other troops who you'll use are visible on the screen. Then click with the left mouse button", "Select Soldiers", 2)
+            calibration("how_many_catapults", "Write down how many catapults you will use:", "Siege engine", 3)
+            calibration("cord_click_values_catapults", "Let's capture the location of field to enter the number of catapults", "Siege engine", 1)
+            calibration("how_many_troops", "Write down how many soldiers you will use:", "Troops Unit", 3)
+            calibration("cord_click_values_troops", "Choose another troop type and click on the quantity field", "Troops Unit", 1)
+            calibration("how_many_troops1", "Write down how many soldiers you will use:", "Troops1 Unit", 3)
+            calibration("cord_click_values_troops1", "Choose another troop type and click on the quantity field", "Troops1 Unit", 1)
+            calibration("how_many_troops2", "Write down how many soldiers you will use:", "Troops2 Unit", 3)
+            calibration("cord_click_values_troops2", "Choose another troop type and click on the quantity field", "Troops3 Unit", 1)
+            calibration("cord_startmarch_button", "Let's capture the location of start march button", "Start march",1)
+            calibration("cord_speedup_march", "Let's capture the location of speedup march button", "Speedup march",1)
+            calibration("cord_click_use_speedups_screen", "Let's capture the speedups icon area", "Speedup icon", 0)
+            calibration("cord_click_use_speedups", "Let's capture the location of use button", "Use Speedup button",1)
+        else:
+            calibration("how_many_citadels", "Write down how many citadels you want to attack:", "How Many Citadels", 3)
+            calibration("cord_attack_button","Let's capture the location of attack button", "Attack button", 1)
+            calibration("scroll_to_soldiers", "Move the mouse to the list of troops and scroll until both catapults and other troops who you'll use are visible on the screen. Then click with the left mouse button", "Select Soldiers", 2)
+            calibration("cord_click_values_catapults", "Let's capture the location of field to enter the number of catapults", "Siege engine", 1)
+            calibration("cord_click_values_troops", "Choose another troop type and click on the quantity field", "Troops Unit", 1)
+            calibration("cord_click_values_troops1", "Choose another troop type and click on the quantity field", "Troops1 Unit", 1)
+            calibration("cord_click_values_troops2", "Choose another troop type and click on the quantity field", "Troops3 Unit", 1)
+
+    except SystemExit:
+        pass
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
