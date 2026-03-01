@@ -3,10 +3,165 @@ import configparser
 from pynput import mouse
 import tkinter as tk
 from screeninfo import get_monitors
+import os
+import sys
+
+scroll_count = 0
+
+def get_base_path():
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def set_window_icon(window):
+    candidates = ["icone.png", "icon.png"]
+    search_paths = []
+
+    # Current folder
+    search_paths.append(os.getcwd())
+    # Script folder (or _MEIPASS when frozen)
+    search_paths.append(get_base_path())
+    # Folder where executable is located
+    search_paths.append(os.path.dirname(sys.executable))
+
+    for base in search_paths:
+        for icon_name in candidates:
+            icon_path = os.path.join(base, icon_name)
+            try:
+                if os.path.exists(icon_path):
+                    icon_image = tk.PhotoImage(file=icon_path)
+                    window.iconphoto(True, icon_image)
+                    # Keep reference to avoid garbage collection.
+                    window._icon_image = icon_image
+                    return
+            except tk.TclError:
+                pass
+
+
+def center_window(window, width, height):
+    x = (window.winfo_screenwidth() // 2) - (width // 2)
+    y = (window.winfo_screenheight() // 2) - (height // 2)
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+
+def show_info_dialog(title, message):
+    result = {"ok": False}
+
+    dialog = tk.Tk()
+    dialog.title(title)
+    dialog.resizable(False, False)
+    set_window_icon(dialog)
+    center_window(dialog, 460, 180)
+    dialog.attributes("-topmost", True)
+
+    tk.Label(dialog, text=message, wraplength=420, justify="center").pack(padx=20, pady=(24, 14))
+
+    def on_ok():
+        result["ok"] = True
+        dialog.destroy()
+
+    tk.Button(dialog, text="OK", command=on_ok, width=12).pack(pady=(0, 20))
+    dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+    dialog.mainloop()
+    return result["ok"]
+
+
+def show_confirm_dialog(title, message, ok_text="OK", cancel_text="Cancel"):
+    result = {"ok": False}
+
+    dialog = tk.Tk()
+    dialog.title(title)
+    dialog.resizable(False, False)
+    set_window_icon(dialog)
+    center_window(dialog, 500, 200)
+    dialog.attributes("-topmost", True)
+
+    tk.Label(dialog, text=message, wraplength=460, justify="center").pack(padx=20, pady=(24, 14))
+
+    buttons = tk.Frame(dialog)
+    buttons.pack(pady=(0, 20))
+
+    def on_ok():
+        result["ok"] = True
+        dialog.destroy()
+
+    def on_cancel():
+        result["ok"] = False
+        dialog.destroy()
+
+    tk.Button(buttons, text=ok_text, command=on_ok, width=12).pack(side="left", padx=8)
+    tk.Button(buttons, text=cancel_text, command=on_cancel, width=12).pack(side="left", padx=8)
+
+    dialog.protocol("WM_DELETE_WINDOW", on_cancel)
+    dialog.mainloop()
+    return result["ok"]
+
+
+def show_prompt_dialog(title, message, default_value=""):
+    result = {"value": None}
+
+    dialog = tk.Tk()
+    dialog.title(title)
+    dialog.resizable(False, False)
+    set_window_icon(dialog)
+    center_window(dialog, 520, 220)
+    dialog.attributes("-topmost", True)
+
+    tk.Label(dialog, text=message, wraplength=480, justify="center").pack(padx=20, pady=(24, 10))
+
+    entry = tk.Entry(dialog, width=32)
+    entry.insert(0, default_value)
+    entry.pack(pady=(0, 16))
+    entry.focus_set()
+
+    buttons = tk.Frame(dialog)
+    buttons.pack(pady=(0, 20))
+
+    def on_ok():
+        value = entry.get().strip()
+        result["value"] = value if value else None
+        dialog.destroy()
+
+    def on_cancel():
+        result["value"] = None
+        dialog.destroy()
+
+    tk.Button(buttons, text="OK", command=on_ok, width=12).pack(side="left", padx=8)
+    tk.Button(buttons, text="Cancel", command=on_cancel, width=12).pack(side="left", padx=8)
+
+    dialog.bind("<Return>", lambda _event: on_ok())
+    dialog.protocol("WM_DELETE_WINDOW", on_cancel)
+    dialog.mainloop()
+    return result["value"]
+
+
+def choose_mode_dialog():
+    result = {"mode": None}
+
+    dialog = tk.Tk()
+    dialog.title("Calibration")
+    dialog.resizable(False, False)
+    set_window_icon(dialog)
+    center_window(dialog, 320, 190)
+    dialog.attributes("-topmost", True)
+
+    tk.Label(dialog, text="Select calibration mode:").pack(padx=20, pady=(20, 10))
+
+    def choose(mode):
+        result["mode"] = mode
+        dialog.destroy()
+
+    tk.Button(dialog, text="Full Calibration", width=20, command=lambda: choose("full")).pack(pady=5)
+    tk.Button(dialog, text="Only Troops", width=20, command=lambda: choose("soldiers")).pack(pady=(5, 16))
+
+    dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+    dialog.mainloop()
+    return result["mode"]
 
 def capture_area():
     def start_selection(event):
-        global start_x, start_y
+        nonlocal start_x, start_y
         start_x, start_y = event.x, event.y
         canvas.create_rectangle(start_x, start_y, start_x, start_y, outline='red', tag='selection')
 
@@ -16,13 +171,17 @@ def capture_area():
 
     # Função para finalizar a seleção
     def end_selection(event):
-        global area
+        nonlocal area
         area = (start_x, start_y, event.x, event.y)
         window.destroy()  # Fecha a window
 
     # Criando a window
+    area = None
+    start_x = 0
+    start_y = 0
     window = tk.Tk()
     window.title("Mouse Selection")
+    set_window_icon(window)
 
     # Fazendo a window ocupar a tela inteira
     window.attributes('-fullscreen', True)
@@ -37,6 +196,7 @@ def capture_area():
     canvas.bind("<Button-1>", start_selection)
     canvas.bind("<B1-Motion>", update_selection)
     canvas.bind("<ButtonRelease-1>", end_selection)
+    window.protocol("WM_DELETE_WINDOW", window.destroy)
     
     # Executando a window
     window.mainloop()
@@ -52,6 +212,7 @@ def get_click_postition():
                 pass
 
 def scroll_capture():
+        global scroll_count
         scroll_count = 0
         def on_scroll(x, y, dx, dy):
             global scroll_count
@@ -79,16 +240,7 @@ def get_monitor_resolution():
         config.write(f)
 
 def choose_calibration_mode():
-    result = pyautogui.confirm(
-        text="Select calibration mode:",
-        title="Calibration",
-        buttons=["Full Calibration", "Only Troops"]
-    )
-    if result == "Full Calibration":
-        return "full"
-    if result == "Only Troops":
-        return "soldiers"
-    return None
+    return choose_mode_dialog()
 
 def calibration(opt, msg, title, type_cap):
     # type_cap: 0 for area, 1 for clicks, 2 for scrolls and 3 for prompt
@@ -96,14 +248,18 @@ def calibration(opt, msg, title, type_cap):
     howmany = 0
     
     if type_cap == 3:
-        val = pyautogui.prompt(text=msg, title=title, default='')
-        if val is None or val.strip() == "":
+        val = show_prompt_dialog(title, msg, "")
+        if val is None:
             raise SystemExit(0)
-        howmany = int(val)
+        try:
+            howmany = int(val)
+        except ValueError:
+            show_info_dialog("Calibration", "Invalid number. Calibration canceled.")
+            raise SystemExit(0)
             
     else:
-        result = pyautogui.confirm(text=msg, title=title, buttons=["OK", "Cancel"])
-        if result != "OK":
+        result = show_confirm_dialog(title, msg, "OK", "Cancel")
+        if not result:
             raise SystemExit(0)
             
     if type_cap == 2:#how many scroll clicks capture
@@ -114,6 +270,8 @@ def calibration(opt, msg, title, type_cap):
         #print(cord_click)
     if type_cap == 0: #area capture
         cord_click = capture_area()
+        if cord_click is None:
+            raise SystemExit(0)
         #time.sleep(5)
         #print(cord_click[0],' ',cord_click[1],' ',cord_click[2],' ',cord_click[3])
         pyautogui.click(cord_click[0]+50, cord_click[1]+20)
@@ -148,19 +306,38 @@ def calibration(opt, msg, title, type_cap):
 
     # Mensagem de sucesso
     if type_cap != 3:
-        pyautogui.alert(title="Calibration",
-                        text="Position of the {} successfully captured!".format(title),
-                        button="OK")
+        show_info_dialog("Calibration", "Position of the {} successfully captured!".format(title))
         
     if opt == "cord_click_use_speedups":
-         pyautogui.alert(title="Calibration",
-                        text="Position of the {} successfully captured! Finished. All parameters were captured.".format(title),
-                        button="OK")
+         show_info_dialog("Calibration", "Position of the {} successfully captured! Finished. All parameters were captured.".format(title))
+def check_open_total_battle():
+    """Checks if the Total Battle application is running."""
 
+    # Find all windows with the given title
+    window_title = "Total Battle"
+    windows = pyautogui.getWindowsWithTitle(window_title)
+
+    # If there's at least one window, activate it
+    if windows:
+        windows[0].restore()
+        windows[0].maximize()
+        windows[0].activate()
+        print("Total Battle application is running!.")
+        return True
+    else:
+        print("Total Battle application isn´t running.")
+        return False
 
 
 if __name__ == "__main__":
     try:
+        if not check_open_total_battle():
+            show_info_dialog(
+                "Calibration",
+                "Total Battle is not open. Please open the game and run calibration again."
+            )
+            raise SystemExit(0)
+
         mode = choose_calibration_mode()
         if mode is None:
             raise SystemExit(0)

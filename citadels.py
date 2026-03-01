@@ -31,6 +31,15 @@ def create_stop_window():
     stop_window.resizable(False, False)
     stop_window.attributes("-topmost", True)
 
+    # Set window icon (icone.png or icon.png in project root)
+    for icon_path in ("icone.png", "icon.png"):
+        try:
+            img = tk.PhotoImage(file=icon_path)
+            stop_window.iconphoto(True, img)
+            break
+        except (tk.TclError, FileNotFoundError):
+            pass
+
     # Position bottom-right
     stop_window.update_idletasks()
     width = 320
@@ -129,6 +138,7 @@ def check_open_total_battle():
     if windows:
         windows[0].restore()
         windows[0].maximize()
+        windows[0].activate()
         print("Total Battle application is running!.")
         return True
     else:
@@ -222,6 +232,7 @@ if __name__ == "__main__":
 
     create_stop_window()
     start_keyboard_listener()
+    check_open_total_battle()
     for i in range(how_many_citadels):
         if check_stop():
             break
@@ -303,7 +314,7 @@ if __name__ == "__main__":
                     while True:
                         result = find_image_on_screen("images\\troopsonthemarch.png.",cord_click_use_speedups_screen)
                         if result is None or len(result) == 0:
-                            print("Troops scree1200n closed")
+                            print("Troops screen closed")
                             break
                         else:
                             print("Waiting for the acceleration screen to close.")
